@@ -1,0 +1,7 @@
+[package]
+name = "editorconfig"
+version = "0.1.0"
+authors = ["Andrea Cognolato <andrecogno@hotmail.it>"]
+
+[dependencies]
+rust-ini = "0.10.0"
