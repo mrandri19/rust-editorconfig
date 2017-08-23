@@ -2,6 +2,10 @@
 name = "editorconfig"
 version = "0.1.0"
 authors = ["Andrea Cognolato <andrecogno@hotmail.it>"]
+license = "MIT"
+license-file = "LICENSE"
+repository = "https://github.com/mrandri19/rust-editorconfig"
+description = "A crate that implements editorconfig"
 
 [dependencies]
 rust-ini = "0.10.0"
