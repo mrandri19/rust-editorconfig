@@ -72,8 +72,9 @@ fn search_dir_for_editorconfig(search_path: &Path) -> std::io::Result<PathBuf> {
 /// or an `.editorconfig` file with `root=true` is found.
 ///
 /// # Example
-/// ```
-/// let res = get_editorconfig("./myfile.rs").unwrap();
+/// ```rust,no_run
+/// use std::path::Path;
+/// let res = editorconfig::get_editorconfig(Path::new("./myfile.rs")).unwrap();
 /// for (sec, prop) in res.iter() {
 ///    println!("Section: {:?}", *sec);
 ///    for (k, v) in prop.iter() {
