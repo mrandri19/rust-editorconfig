@@ -10,5 +10,5 @@ script:
   - cargo build --verbose
   - cargo test --verbose
   - cd tests
-  - cmake -DEDITORCONFIG_CMD=`pwd`/../target/debug/editorconfig -E $(cat ../test_skip_regex.txt) .
-  - ctest .
+  - cmake -DEDITORCONFIG_CMD=`pwd`/../target/debug/editorconfig .
+  - ctest . -E $(cat ../test_skip_regex.txt)
