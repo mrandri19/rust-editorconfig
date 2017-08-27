@@ -3,6 +3,16 @@ rust:
   - stable
   - beta
   - nightly
+env:
+  - SKIP_TESTS_FROM=../test_skip_regex.txt
+  - SKIP_TESTS_FROM=/dev/null
 matrix:
   allow_failures:
+    - env: SKIP_TESTS_FROM=/dev/null
     - rust: nightly
+script:
+  - cargo build --verbose
+  - cargo test --verbose
+  - cd tests
+  - cmake -DEDITORCONFIG_CMD=`pwd`/../target/debug/editorconfig .
+  - ctest . -E $(cat $SKIP_TESTS_FROM)
