@@ -127,6 +127,7 @@ fn parse_config(target: &Path, conf_file: &Path) -> Result<OrderMap<String, Stri
         }
     }
     let target = target.as_os_str().to_os_string().into_string().unwrap();
+    #[cfg(windows)]
     let target = target.replace("\\", "/");
     for (label, data) in ini_data.iter() {
         if let Some(ref label) = *label {
