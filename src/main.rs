@@ -2,7 +2,7 @@ extern crate editorconfig;
 extern crate argparse;
 
 use editorconfig::*;
-use argparse::{ArgumentParser, Store, List};
+use argparse::{ArgumentParser, Store, List, Print};
 use std::path::Path;
 
 fn main() {
@@ -16,6 +16,8 @@ fn main() {
             .add_option(&["-f"], Store, "Conf filename");
         ap.refer(&mut version)
             .add_option(&["-b"], Store, "editorconfig version");
+        ap.add_option(&["-v", "--version"],
+            Print(format!("EditorConfig Rust Core Version {}", env!("CARGO_PKG_VERSION"))), "Show version");
         ap.refer(&mut targets)
             .add_argument("arguments", List, "Files to check");
         ap.parse_args_or_exit();
