@@ -13,7 +13,12 @@ use std::error::Error;
 
 /// Finds all possible `conffile`s starting from `path` until root.
 fn crawl_paths(path: &Path, conffile: &str) -> Result<Vec<PathBuf>, Box<Error>> {
-    let mut path = path.canonicalize()?;
+    let mut path = if path.exists() {
+        path.canonicalize()?
+    } else {
+        path.to_path_buf()
+    };
+
     let mut result = vec![];
     while path.parent().is_some() {
         let mut adjacent_file = path.clone();
@@ -160,9 +165,7 @@ pub fn get_config_conffile(file_path: &Path,
                            conffile: &str)
                            -> Result<OrderMap<String, String>, Box<Error>> {
     let paths = crawl_paths(file_path, conffile)?;
-    if paths.is_empty() {
-        return Err(Box::new(std::io::Error::from(std::io::ErrorKind::NotFound)));
-    }
+
     let mut result = OrderMap::new();
     for conf_path in paths {
         let options = parse_config(file_path, &conf_path)?;
@@ -204,7 +207,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn get_editorconfig_for_non_existing_file() {
         assert!(get_config(Path::new("./test_files/diocano")).is_ok());
     }
