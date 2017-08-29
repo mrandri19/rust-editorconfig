@@ -147,8 +147,6 @@ fn is_known_key(key: &str) -> bool {
 /// # Errors
 ///  It returns an error:
 ///
-/// - when the `.editorconfig` file can't be found
-///
 /// - when it can't parse it
 ///
 /// - when the `file_path` is malformed (check `std::fs::canonicalize` docs) or is a directory.
