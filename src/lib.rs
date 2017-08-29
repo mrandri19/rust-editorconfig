@@ -13,7 +13,6 @@ use std::error::Error;
 
 /// Finds all possible `conffile`s starting from `path` until root.
 fn crawl_paths(path: &Path, conffile: &str) -> Result<Vec<PathBuf>, Box<Error>> {
-    assert!(path.is_file());
     let mut path = path.canonicalize()?;
     let mut result = vec![];
     while path.parent().is_some() {
@@ -33,8 +32,7 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
     // println!("B: {}", pattern);
     let pattern = pattern.replace(".", r"\.");
     let unmatched_open_bracket_regex = Regex::new(r"\[([^\]]*)$").unwrap();
-    let pattern = unmatched_open_bracket_regex
-        .replace(&pattern, r"\[$1")
+    let pattern = unmatched_open_bracket_regex.replace(&pattern, r"\[$1")
         .to_string();
     // Step 2. Convert sh globs to regexes
     // Handling * and ** is weird but this actually works
@@ -43,8 +41,7 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
     let pattern = pattern.replace("?", ".");
     let pattern = pattern.replace("[!", "[^");
     let alternation_regex = Regex::new(r"\{(.*,.*)\}").unwrap();
-    let pattern = alternation_regex
-        .replace(&pattern, |caps: &Captures| {
+    let pattern = alternation_regex.replace(&pattern, |caps: &Captures| {
             let padded_cases = format!(",{},", &caps[1]);
             let quantifier = if padded_cases.contains(",,") { "?" } else { "" };
             let cases = caps[1].replace(",", "|");
@@ -114,15 +111,13 @@ fn parse_config(target: &Path, conf_file: &Path) -> Result<OrderMap<String, Stri
 }
 
 fn is_known_key(key: &str) -> bool {
-    let known_keys = [
-        "indent_style",
-        "indent_size",
-        "tab_width",
-        "end_of_line",
-        "charset",
-        "trim_trailing_whitespace",
-        "insert_final_newline",
-    ];
+    let known_keys = ["indent_style",
+                      "indent_size",
+                      "tab_width",
+                      "end_of_line",
+                      "charset",
+                      "trim_trailing_whitespace",
+                      "insert_final_newline"];
     known_keys.contains(&key)
 }
 
@@ -161,10 +156,9 @@ pub fn get_config(file_path: &Path) -> Result<OrderMap<String, String>, Box<Erro
 /// # MAINLY USED FOR TESTING AND INTERNAL USE, CHECK `get_config`.
 ///
 /// Looks for config data in given filename; in normal operation this will be ".editorconfig".
-pub fn get_config_conffile(
-    file_path: &Path,
-    conffile: &str,
-) -> Result<OrderMap<String, String>, Box<Error>> {
+pub fn get_config_conffile(file_path: &Path,
+                           conffile: &str)
+                           -> Result<OrderMap<String, String>, Box<Error>> {
     let paths = crawl_paths(file_path, conffile)?;
     if paths.is_empty() {
         return Err(Box::new(std::io::Error::from(std::io::ErrorKind::NotFound)));
@@ -199,23 +193,6 @@ pub fn get_config_conffile(
 mod tests {
     use super::*;
     use std::path::Path;
-
-    #[test]
-    fn finds_editorconfig_in_directory() {
-        let search = crawl_paths(Path::new("./test_files/simple/file.txt"), ".editorconfig");
-        assert!(search.is_ok());
-        assert_eq!(
-            search.unwrap(),
-            vec![
-                Path::new("./test_files/simple/.editorconfig")
-                    .canonicalize()
-                    .unwrap(),
-                Path::new("./test_files/.editorconfig")
-                    .canonicalize()
-                    .unwrap(),
-            ]
-        );
-    }
 
     #[test]
     fn works_with_multi_level_directories() {
