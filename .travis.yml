@@ -14,5 +14,5 @@ script:
   - cargo build --verbose
   - cargo test --verbose
   - cd tests
-  - cmake -DEDITORCONFIG_CMD=`pwd`/../target/debug/editorconfig .
-  - ctest . -E $(cat $SKIP_TESTS_FROM)
+  - cmake -DEDITORCONFIG_CMD=$(pwd)/../target/debug/editorconfig .
+  - ctest -VV --output-on-failure . -E $(cat $SKIP_TESTS_FROM)
