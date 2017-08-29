@@ -145,7 +145,9 @@ fn is_known_key(key: &str) -> bool {
 /// ```
 /// use std::path::Path;
 ///
-/// let res = editorconfig::get_config(Path::new("./test_files/simple/file.txt")).unwrap();
+/// let path = Path::new("./test_files/simple/file.txt");
+/// let path = path.canonicalize().unwrap();
+/// let res = editorconfig::get_config(&path).unwrap();
 /// for (k, v) in res.iter() {
 ///     println!("{}={}", *k, *v);
 /// }
@@ -205,7 +207,9 @@ mod tests {
 
     #[test]
     fn works_with_multi_level_directories() {
-        let cfg = get_config(Path::new("./test_files/multi_level/foo/bar/file.txt")).unwrap();
+        let path = Path::new("./test_files/multi_level/foo/bar/file.txt");
+        let path = path.canonicalize().unwrap();
+        let cfg = get_config(&path).unwrap();
         let mut map = OrderMap::new();
         map.insert("end_of_line".to_owned(), "lf".to_owned());
         map.insert("insert_final_newline".to_owned(), "true".to_owned());
