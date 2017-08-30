@@ -40,10 +40,12 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
     let pattern = unmatched_open_bracket_regex.replace(&pattern, r"\[$1")
         .to_string();
     // Step 2. Convert sh globs to regexes
+    let pattern = pattern.replace("?", ".");
     // Handling * and ** is weird but this actually works
     let pattern = pattern.replace("*", "[^/]*");
     let pattern = pattern.replace("[^/]*[^/]*", ".*");
-    let pattern = pattern.replace("?", ".");
+    // If we had /**/, make the directory and leading / optional
+    let pattern = pattern.replace("/.*/", "(/.*)?/");
     let pattern = pattern.replace("[!", "[^");
     let alternation_regex = Regex::new(r"\{(.*,.*)\}").unwrap();
     let pattern = alternation_regex.replace(&pattern, |caps: &Captures| {
@@ -53,6 +55,8 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
             format!("({}){}", cases, quantifier)
         })
         .to_string();
+    let leading_slash_regex = Regex::new(r"^/").unwrap();
+    let pattern = leading_slash_regex.replace(&pattern, "^");
     let pattern = pattern.replace("{", r"\{");
     let pattern = pattern.replace("}", r"\}");
     let pattern = pattern.replace("||", "|");
@@ -67,6 +71,7 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
 }
 
 fn parse_config(target: &Path, conf_file: &Path) -> Result<OrderMap<String, String>, Box<Error>> {
+    let context = conf_file.parent().unwrap();
     let ini_data = ini::Ini::load_from_file(conf_file)?;
     let mut result = OrderMap::new();
     if let Some(general) = ini_data.section::<String>(None) {
@@ -76,6 +81,7 @@ fn parse_config(target: &Path, conf_file: &Path) -> Result<OrderMap<String, Stri
             }
         }
     }
+    let target = target.strip_prefix(&context)?;
     let target = target.as_os_str().to_os_string().into_string().unwrap();
     #[cfg(windows)]
     let target = target.replace("\\", "/");
@@ -139,7 +145,9 @@ fn is_known_key(key: &str) -> bool {
 /// ```
 /// use std::path::Path;
 ///
-/// let res = editorconfig::get_config(Path::new("./test_files/simple/file.txt")).unwrap();
+/// let path = Path::new("./test_files/simple/file.txt");
+/// let path = path.canonicalize().unwrap();
+/// let res = editorconfig::get_config(&path).unwrap();
 /// for (k, v) in res.iter() {
 ///     println!("{}={}", *k, *v);
 /// }
@@ -197,7 +205,9 @@ mod tests {
 
     #[test]
     fn works_with_multi_level_directories() {
-        let cfg = get_config(Path::new("./test_files/multi_level/foo/bar/file.txt")).unwrap();
+        let path = Path::new("./test_files/multi_level/foo/bar/file.txt");
+        let path = path.canonicalize().unwrap();
+        let cfg = get_config(&path).unwrap();
         let mut map = OrderMap::new();
         map.insert("end_of_line".to_owned(), "lf".to_owned());
         map.insert("insert_final_newline".to_owned(), "true".to_owned());
