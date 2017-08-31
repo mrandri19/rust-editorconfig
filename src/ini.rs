@@ -785,7 +785,7 @@ impl<'a> Parser<'a> {
         // Skip [
         self.bump();
         self.parse_str_until(&[Some('\n'), Some(';'), Some('#'), None]).map(|mut n| {
-            n = n.trim().to_string();
+            n = n.trim_right().to_string();
             n.pop();
             n
         })
