@@ -41,6 +41,8 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
         .to_string();
     // Step 2. Convert sh globs to regexes
     let pattern = pattern.replace("?", ".");
+    let bracketed_slash_regex = Regex::new(r"\[(.*/.*)\]").unwrap();
+    let pattern = bracketed_slash_regex.replace(&pattern, r"\[$1\]");
     // Handling * and ** is weird but this actually works
     let pattern = pattern.replace("*", "[^/]*");
     let pattern = pattern.replace("[^/]*[^/]*", ".*");
@@ -49,6 +51,9 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
     let pattern = pattern.replace("[!", "[^");
     let alternation_regex = Regex::new(r"\{(.*,.*)\}").unwrap();
     let pattern = alternation_regex.replace(&pattern, |caps: &Captures| {
+            if caps[1].starts_with("}") || caps[1].ends_with("{") {
+                return format!("{{{}}}", &caps[1]);
+            }
             let padded_cases = format!(",{},", &caps[1]);
             let quantifier = if padded_cases.contains(",,") { "?" } else { "" };
             let cases = caps[1].replace(",", "|");
@@ -62,9 +67,8 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
     let pattern = pattern.replace("||", "|");
     let pattern = pattern.replace("(|", "(");
     let pattern = pattern.replace("|)", ")");
-    let mut pattern = pattern;
-    pattern.push('$');
-    // println!("A: {}", pattern);
+    let pattern = format!("^(.*?/)?{}$", pattern);
+    // println!("A: {} / {}", pattern, candidate);
     // Step 3. Actually do the testing
     let final_regex = Regex::new(&pattern).unwrap();
     return final_regex.is_match(candidate);
