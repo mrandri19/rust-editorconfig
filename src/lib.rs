@@ -35,7 +35,7 @@ fn crawl_paths(path: &Path, conffile: &str) -> Result<Vec<PathBuf>, Box<Error>> 
 fn has_imbalanced_braces(text: &str) -> bool {
     let mut depth = 0i32;
     let escaped_brace_regex = Regex::new(r"\\(\{|\})").unwrap();
-    let text = escaped_brace_regex.replace(text, "");
+    let text = escaped_brace_regex.replace_all(text, "");
     for c in text.chars() {
         if c == '{' {
             depth += 1;
@@ -49,38 +49,50 @@ fn has_imbalanced_braces(text: &str) -> bool {
     return depth != 0;
 }
 
+fn translate_alternation(caps: &Captures) -> String {
+    if has_imbalanced_braces(&caps[1]) {
+        // println!("\"{}\" has imbalanced braces", &caps[1]);
+        return format!("{{{}}}", &caps[1].replace("{", r"\{").replace("}", r"\}"));
+    }
+    let padded_cases = format!(",{},", &caps[1]);
+    let quantifier = if padded_cases.contains(",,") { "?" } else { "" };
+    let cases = caps[1].replace(",", "|");
+    // println!(" 1 {}", cases);
+    let escaped_comma_regex = Regex::new(r"(^|[^\\])\\\|").unwrap();
+    let cases = escaped_comma_regex.replace(&cases, "$1,");
+    // println!(" 2 {}", cases);
+    format!("({}){}", cases, quantifier)
+}
+
 fn glob_match(pattern: &String, candidate: &String) -> bool {
     // Step 1. Escape the crap out of the existing pattern
     // println!("B: {}", pattern);
     let pattern = pattern.replace(".", r"\.");
     let unmatched_open_bracket_regex = Regex::new(r"\[([^\]]*)$").unwrap();
-    let pattern = unmatched_open_bracket_regex.replace(&pattern, r"\[$1")
+    let pattern = unmatched_open_bracket_regex.replace_all(&pattern, r"\[$1")
         .to_string();
     // Step 2. Convert sh globs to regexes
     let pattern = pattern.replace("?", ".");
     let bracketed_slash_regex = Regex::new(r"\[(.*/.*)\]").unwrap();
-    let pattern = bracketed_slash_regex.replace(&pattern, r"\[$1\]");
+    let pattern = bracketed_slash_regex.replace_all(&pattern, r"\[$1\]");
     // Handling * and ** is weird but this actually works
     let pattern = pattern.replace("*", "[^/]*");
     let pattern = pattern.replace("[^/]*[^/]*", ".*");
     // If we had /**/, make the directory and leading / optional
     let pattern = pattern.replace("/.*/", "(/.*)?/");
     let pattern = pattern.replace("[!", "[^");
-    let alternation_regex = Regex::new(r"\{(.*,.*)\}").unwrap();
-    let pattern = alternation_regex.replace(&pattern, |caps: &Captures| {
-            if has_imbalanced_braces(&caps[1]) {
-                return format!("{{{}}}", &caps[1]);
-            }
-            let padded_cases = format!(",{},", &caps[1]);
-            let quantifier = if padded_cases.contains(",,") { "?" } else { "" };
-            let cases = caps[1].replace(",", "|");
-            // println!(" 1 {}", cases);
-            let escaped_comma_regex = Regex::new(r"(^|[^\\])\\\|").unwrap();
-            let cases = escaped_comma_regex.replace(&cases, "$1,");
-            // println!(" 2 {}", cases);
-            format!("({}){}", cases, quantifier)
-        })
-        .to_string();
+    // Handle single-option "alternation" manually earlier
+    let fake_alternation_regex = Regex::new(r"\{([^,]+)\}").unwrap();
+    let pattern = fake_alternation_regex.replace_all(&pattern, r"\{$1\}").to_string();
+    let mut pattern = pattern;
+    // Can use , or | between cases, no } directly after opening {, no backslash before final }
+    let alternation_regex = Regex::new(r"\{(([^\}].*)?(,|\|)(.*[^\\])?)\}").unwrap();
+    // Since nesting can be infinite, run until there is no more alternation
+    while alternation_regex.is_match(&pattern) {
+        // println!("{} matches {} at {}", pattern, alternation_regex, alternation_regex.captures(&pattern).unwrap().get(0).unwrap().as_str());
+        pattern = alternation_regex.replace_all(&pattern, translate_alternation).to_string();
+        // println!("D: {}", pattern);
+    }
     let leading_slash_regex = Regex::new(r"^/").unwrap();
     let pattern = leading_slash_regex.replace(&pattern, "^");
     // Yes, this is a bit complex, but I don't want "\{" to become "\\{"
