@@ -32,6 +32,21 @@ fn crawl_paths(path: &Path, conffile: &str) -> Result<Vec<PathBuf>, Box<Error>> 
     return Ok(result);
 }
 
+fn has_imbalanced_braces(text: &str) -> bool {
+    let mut depth = 0i32;
+    for c in text.chars() {
+        if c == '{' {
+            depth += 1;
+        } else if c == '}' {
+            depth -= 1;
+            if depth < 0 {
+                return true;
+            }
+        }
+    }
+    return depth != 0;
+}
+
 fn glob_match(pattern: &String, candidate: &String) -> bool {
     // Step 1. Escape the crap out of the existing pattern
     // println!("B: {}", pattern);
@@ -51,7 +66,7 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
     let pattern = pattern.replace("[!", "[^");
     let alternation_regex = Regex::new(r"\{(.*,.*)\}").unwrap();
     let pattern = alternation_regex.replace(&pattern, |caps: &Captures| {
-            if caps[1].starts_with("}") || caps[1].ends_with("{") {
+            if has_imbalanced_braces(&caps[1]) {
                 return format!("{{{}}}", &caps[1]);
             }
             let padded_cases = format!(",{},", &caps[1]);
