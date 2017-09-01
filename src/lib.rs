@@ -34,6 +34,8 @@ fn crawl_paths(path: &Path, conffile: &str) -> Result<Vec<PathBuf>, Box<Error>> 
 
 fn has_imbalanced_braces(text: &str) -> bool {
     let mut depth = 0i32;
+    let escaped_brace_regex = Regex::new(r"\\(\{|\})").unwrap();
+    let text = escaped_brace_regex.replace(text, "");
     for c in text.chars() {
         if c == '{' {
             depth += 1;
@@ -72,13 +74,20 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
             let padded_cases = format!(",{},", &caps[1]);
             let quantifier = if padded_cases.contains(",,") { "?" } else { "" };
             let cases = caps[1].replace(",", "|");
+            // println!(" 1 {}", cases);
+            let escaped_comma_regex = Regex::new(r"(^|[^\\])\\\|").unwrap();
+            let cases = escaped_comma_regex.replace(&cases, "$1,");
+            // println!(" 2 {}", cases);
             format!("({}){}", cases, quantifier)
         })
         .to_string();
     let leading_slash_regex = Regex::new(r"^/").unwrap();
     let pattern = leading_slash_regex.replace(&pattern, "^");
-    let pattern = pattern.replace("{", r"\{");
-    let pattern = pattern.replace("}", r"\}");
+    // Yes, this is a bit complex, but I don't want "\{" to become "\\{"
+    let unescaped_brace_regex = Regex::new(r"(^|[^\\])(\{|\})").unwrap();
+    let pattern = unescaped_brace_regex.replace_all(&pattern, r"$1\$2");
+    // Run it again to catch overlaps ({{)
+    let pattern = unescaped_brace_regex.replace_all(&pattern, r"$1\$2");
     let pattern = pattern.replace("||", "|");
     let pattern = pattern.replace("(|", "(");
     let pattern = pattern.replace("|)", ")");
