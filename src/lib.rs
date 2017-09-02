@@ -65,6 +65,7 @@ fn translate_alternation(caps: &Captures) -> String {
 }
 
 fn glob_match(pattern: &String, candidate: &String) -> bool {
+    let orig_had_slash = pattern.contains('/');
     // Step 1. Escape the crap out of the existing pattern
     // println!("B: {}", pattern);
     let pattern = pattern.replace(".", r"\.");
@@ -103,7 +104,13 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
     let pattern = pattern.replace("||", "|");
     let pattern = pattern.replace("(|", "(");
     let pattern = pattern.replace("|)", ")");
-    let pattern = format!("^(.*?/)?{}$", pattern);
+    // Only allow subdirectories if no directory was specified to begin with
+    let leading_expr = if orig_had_slash {
+        ""
+    } else {
+        "(.*?/)?"
+    };
+    let pattern = format!("^{}{}$", leading_expr, pattern);
     // println!("A: {} / {}", pattern, candidate);
     // Step 3. Actually do the testing
     let final_regex = Regex::new(&pattern).unwrap();
