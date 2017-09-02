@@ -215,6 +215,8 @@ pub fn get_config_conffile(file_path: &Path,
     let mut result = OrderMap::new();
     for conf_path in paths {
         let options = parse_config(file_path, &conf_path)?;
+        let old_result = result;
+        result = OrderMap::new();
         for (k, v) in options.iter() {
             let k = k.to_lowercase();
             let v = if is_known_key(&k) {
@@ -228,6 +230,9 @@ pub fn get_config_conffile(file_path: &Path,
             if !result.contains_key(&k) && k != "root" {
                 result.insert(k, v);
             }
+        }
+        for (k, v) in old_result.iter() {
+            result.insert(k.clone(), v.clone());
         }
         if let Some(root) = options.get("root") {
             if root.to_lowercase() == "true" {
