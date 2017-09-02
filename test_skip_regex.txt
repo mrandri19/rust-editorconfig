@@ -1,1 +1,1 @@
-(braces_unmatched|braces_escaped|braces_patterns_nested|braces_.*_range|pre_0_9_0|parent_and_current_dir|nested_path_separator)
+(braces_.*_range|pre_0_9_0|parent_and_current_dir|nested_path_separator)
