@@ -1,7 +1,7 @@
 [package]
 name = "editorconfig"
-version = "0.2.0"
-authors = ["Andrea Cognolato <andrecogno@hotmail.it>"]
+version = "1.0.0"
+authors = ["Andrea Cognolato <andrecogno@hotmail.it>", "Matt Horn <matt@matthorn.tech>"]
 license = "MIT"
 repository = "https://github.com/mrandri19/rust-editorconfig"
 description = "A crate that implements editorconfig"
