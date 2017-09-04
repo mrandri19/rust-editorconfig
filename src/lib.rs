@@ -51,22 +51,19 @@ fn has_imbalanced_braces(text: &str) -> bool {
 
 fn translate_alternation(caps: &Captures) -> String {
     if has_imbalanced_braces(&caps[1]) {
-        // println!("\"{}\" has imbalanced braces", &caps[1]);
         return format!("{{{}}}", &caps[1].replace("{", r"\{").replace("}", r"\}"));
     }
     let padded_cases = format!(",{},", &caps[1]);
     let quantifier = if padded_cases.contains(",,") { "?" } else { "" };
     let cases = caps[1].replace(",", "|");
-    // println!(" 1 {}", cases);
     let escaped_comma_regex = Regex::new(r"(^|[^\\])\\\|").unwrap();
     let cases = escaped_comma_regex.replace(&cases, "$1,");
-    // println!(" 2 {}", cases);
-    format!("({}){}", cases, quantifier)
+    format!("(?:{}){}", cases, quantifier)
 }
 
 fn glob_match(pattern: &String, candidate: &String) -> bool {
+    let orig_had_slash = pattern.contains('/');
     // Step 1. Escape the crap out of the existing pattern
-    // println!("B: {}", pattern);
     let pattern = pattern.replace(".", r"\.");
     let unmatched_open_bracket_regex = Regex::new(r"\[([^\]]*)$").unwrap();
     let pattern = unmatched_open_bracket_regex.replace_all(&pattern, r"\[$1")
@@ -78,8 +75,15 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
     // Handling * and ** is weird but this actually works
     let pattern = pattern.replace("*", "[^/]*");
     let pattern = pattern.replace("[^/]*[^/]*", ".*");
+    // Store numeric ranges separately and replace with capture groups for numbers
+    // Since all other input groups are non-capturing, just make sure every capture group in the output
+    // matches the corresponding range.
+    let numeric_range_regex = Regex::new(r"\{(-?\d+\\\.\\\.-?\d+)\}").unwrap();
+    let has_numeric_ranges = numeric_range_regex.is_match(&pattern);
+    let numeric_ranges: Vec<_> = numeric_range_regex.captures_iter(&pattern).collect();
+    let pattern = numeric_range_regex.replace_all(&pattern, r"(0|-?[1-9]\d*)");
     // If we had /**/, make the directory and leading / optional
-    let pattern = pattern.replace("/.*/", "(/.*)?/");
+    let pattern = pattern.replace("/.*/", "(?:/.*)?/");
     let pattern = pattern.replace("[!", "[^");
     // Handle single-option "alternation" manually earlier
     let fake_alternation_regex = Regex::new(r"\{([^,]+)\}").unwrap();
@@ -89,9 +93,7 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
     let alternation_regex = Regex::new(r"\{(([^\}].*)?(,|\|)(.*[^\\])?)\}").unwrap();
     // Since nesting can be infinite, run until there is no more alternation
     while alternation_regex.is_match(&pattern) {
-        // println!("{} matches {} at {}", pattern, alternation_regex, alternation_regex.captures(&pattern).unwrap().get(0).unwrap().as_str());
         pattern = alternation_regex.replace_all(&pattern, translate_alternation).to_string();
-        // println!("D: {}", pattern);
     }
     let leading_slash_regex = Regex::new(r"^/").unwrap();
     let pattern = leading_slash_regex.replace(&pattern, "^");
@@ -101,12 +103,39 @@ fn glob_match(pattern: &String, candidate: &String) -> bool {
     // Run it again to catch overlaps ({{)
     let pattern = unescaped_brace_regex.replace_all(&pattern, r"$1\$2");
     let pattern = pattern.replace("||", "|");
-    let pattern = pattern.replace("(|", "(");
+    let pattern = pattern.replace("(?:|", "(?:");
     let pattern = pattern.replace("|)", ")");
-    let pattern = format!("^(.*?/)?{}$", pattern);
-    // println!("A: {} / {}", pattern, candidate);
+    // Only allow subdirectories if no directory was specified to begin with
+    let leading_expr = if orig_had_slash {
+        ""
+    } else {
+        "(?:.*?/)?"
+    };
+    let pattern = format!("^{}{}$", leading_expr, pattern);
     // Step 3. Actually do the testing
     let final_regex = Regex::new(&pattern).unwrap();
+    if has_numeric_ranges && final_regex.is_match(candidate) {
+        let caps: Vec<_> = final_regex.captures_iter(candidate).collect();
+        for (num, range_spec) in caps.iter().zip(numeric_ranges.iter()) {
+            if let Ok(num) = num.get(1).unwrap().as_str().parse::<i32>() {
+                let ends: Vec<Result<i32, _>> = range_spec.get(1).unwrap().as_str().split(r"\.\.").map(|x| x.parse()).collect();
+                if let Ok(min) = ends[0] {
+                    if let Ok(max) = ends[1] {
+                        if min > num || num > max {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
     return final_regex.is_match(candidate);
 }
 
@@ -215,6 +244,8 @@ pub fn get_config_conffile(file_path: &Path,
     let mut result = OrderMap::new();
     for conf_path in paths {
         let options = parse_config(file_path, &conf_path)?;
+        let old_result = result;
+        result = OrderMap::new();
         for (k, v) in options.iter() {
             let k = k.to_lowercase();
             let v = if is_known_key(&k) {
@@ -228,6 +259,9 @@ pub fn get_config_conffile(file_path: &Path,
             if !result.contains_key(&k) && k != "root" {
                 result.insert(k, v);
             }
+        }
+        for (k, v) in old_result.iter() {
+            result.insert(k.clone(), v.clone());
         }
         if let Some(root) = options.get("root") {
             if root.to_lowercase() == "true" {

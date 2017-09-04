@@ -32,7 +32,9 @@ fn main() {
 
         let res = get_config_conffile(Path::new(&t), &conf_filename).unwrap();
         for (k, v) in res.iter() {
-            println!("{}={}", *k, *v);
+            if version != "0.8.0" || k != "indent_size" {
+                println!("{}={}", *k, *v);
+            }
         }
     }
 }

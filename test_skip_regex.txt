@@ -1,1 +1,0 @@
-(braces_.*_range|pre_0_9_0|parent_and_current_dir|nested_path_separator)
